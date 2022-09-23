@@ -7,22 +7,22 @@ const bcrypt = require("bcrypt");
 
 const app = express();
 app.use(express.json());
-const databasePath = path.join(__dirname, "userData.db");
-let database = null;
+const dbPath = path.join(__dirname, "userData.db");
+let db = null;
 
-const initializeDnAndServer = async () => {
+const initializeDBAndServer = async () => {
   try {
-    database = await open({ filename: databasePath, driver: sqlite3.Database });
+    database = await open({ filename: dbPath, driver: sqlite3.Database });
     app.listen(3000, () => {
-      console.log(`Server is running on http://localhost:3000`);
+      console.log(`Server running at http://localhost:3000`);
     });
-  } catch (error) {
-    console.log(`Database Error is ${error}`);
+  } catch (e) {
+    console.log(`DB Error is ${e.message}`);
     process.exit(1);
   }
 };
 
-initializeDnAndServer();
+initializeDBAndServer();
 
 //                               API 1
 //                         user registration
@@ -39,14 +39,14 @@ app.post("/register", async (request, response) => {
   //encrypt password
   const hashedPassword = await bcrypt.hash(password, 10);
   // check if user exists
-  const checkUserQuery = `select username from user where username = '${username}';`;
-  const checkUserResponse = await database.get(checkUserQuery);
+  const checkUserQuery = `SELECT username FROM user WHERE username = '${username}';`;
+  const checkUserResponse = await db.get(checkUserQuery);
   if (checkUserResponse === undefined) {
     const createUserQuery = `
-      insert into user(username,name,password,gender,location) 
-      values('${username}','${name}','${hashedPassword}','${gender}','${location}');`;
+      INSERT INTO user(username,name,password,gender,location) 
+      VALUES ('${username}','${name}','${hashedPassword}','${gender}','${location}');`;
     if (password.length > 5) {
-      const createUser = await database.run(createUserQuery);
+      const createUser = await db.run(createUserQuery);
       response.send("User created successfully"); //Scenario 3
     } else {
       response.status(400);
@@ -70,7 +70,7 @@ app.post("/register", async (request, response) => {
 app.post("/login", async (request, response) => {
   const { username, password } = request.body;
   const checkUserQuery = `select * from user where username = '${username}';`;
-  const userNameResponse = await database.get(checkUserQuery);
+  const userNameResponse = await db.get(checkUserQuery);
   if (userNameResponse !== undefined) {
     const isPasswordMatched = await bcrypt.compare(
       password,
@@ -100,8 +100,8 @@ app.post("/login", async (request, response) => {
 app.put("/change-password", async (request, response) => {
   const { username, oldPassword, newPassword } = request.body;
   // check user
-  const checkUserQuery = `select * from user where username = '${username}';`;
-  const userDetails = await database.get(checkUserQuery);
+  const checkUserQuery = `SELECT * FROM user WHERE username = '${username}';`;
+  const userDetails = await db.get(checkUserQuery);
   if (userDetails !== undefined) {
     const isPasswordValid = await bcrypt.compare(
       oldPassword,
@@ -110,9 +110,9 @@ app.put("/change-password", async (request, response) => {
     if (isPasswordValid) {
       if (newPassword.length > 5) {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
-        const updatePasswordQuery = `update user set 
-        password = '${hashedPassword}' where username = '${username}';`;
-        const updatePasswordResponse = await database.run(updatePasswordQuery);
+        const updatePasswordQuery = `UPDATE user SET 
+        password = '${hashedPassword}' WHERE username = '${username}';`;
+        const updatePasswordResponse = await db.run(updatePasswordQuery);
         response.status(200);
         response.send("Password updated"); //Scenario 3
       } else {
@@ -130,3 +130,4 @@ app.put("/change-password", async (request, response) => {
 });
 
 module.exports = app;
+
